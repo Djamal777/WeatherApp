@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">WeatherApp</string>
+    <string name="degree">%1$d&#xb0;</string>
+    <string name="feels_like">Feels like %1$d</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="degreesItems">
+        <item>&#xb0;C</item>
+        <item>&#xb0;F</item>
+    </string-array>
+</resources>
