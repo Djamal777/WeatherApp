@@ -5,22 +5,29 @@ import com.example.weatherapp.data.remote.dto.ForecastWeather
 import com.example.weatherapp.domain.repository.WeatherRepository
 import com.example.weatherapp.other.Resource
 import io.reactivex.rxjava3.core.Observable
-import kotlinx.coroutines.Dispatchers
 import retrofit2.HttpException
-import java.io.IOException
 
 class WeatherRepositoryImpl(
     private val api: WeatherApi
 ) : WeatherRepository {
-    override fun getForecast(q: String, days: Int): Observable<Resource<ForecastWeather>> {
+    override fun getForecast(
+        latitude: Double,
+        longitude: Double,
+        temperatureUnit: String
+    ): Observable<Resource<ForecastWeather>> {
         return Observable.create<Resource<ForecastWeather>> { emitter ->
             try {
                 emitter.onNext(Resource.Loading<ForecastWeather>())
-                val forecast = api.getForecast(q = q, days = days).blockingGet()
+                val forecast = api.getForecast(
+                    latitude = latitude,
+                    longitude = longitude,
+                    temperatureUnit = temperatureUnit
+                ).blockingGet()
                 emitter.onNext(Resource.Success<ForecastWeather>(forecast))
+                emitter.onComplete()
             } catch (e: HttpException) {
                 emitter.onError(Throwable("An unexpected message occured"))
-            } catch (e: IOException) {
+            } catch (e: RuntimeException) {
                 emitter.onError(Throwable("Couldn't reach server. Check your internet connection"))
             }
         }

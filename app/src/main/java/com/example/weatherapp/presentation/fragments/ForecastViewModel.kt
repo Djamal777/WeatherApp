@@ -1,5 +1,6 @@
 package com.example.weatherapp.presentation.fragments
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -7,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.weatherapp.data.remote.dto.ForecastWeather
 import com.example.weatherapp.domain.location.LocationTracker
 import com.example.weatherapp.domain.repository.WeatherRepository
+import com.example.weatherapp.other.Const.CELSIUS
 import com.example.weatherapp.other.Resource
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +19,8 @@ class ForecastViewModel(
     private val locationTracker: LocationTracker
 ) : ViewModel() {
 
+    var spinnerCheck = 0
+
     private val compositeDisposable = CompositeDisposable()
 
     private val _forecast = MutableLiveData<Resource<ForecastWeather>>()
@@ -24,26 +28,37 @@ class ForecastViewModel(
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            getForecast()
+            getForecast(CELSIUS)
         }
     }
 
-    suspend fun getForecast() {
+    suspend fun getForecast(unit: String) {
+        Log.d("ViewModel", "getForecast: yes")
         locationTracker.getCurrentLocation()?.let { location ->
             compositeDisposable.add(
-                repository.getForecast("${location.latitude}, ${location.longitude}", 7)
-                    .subscribe ({
+                repository.getForecast(
+                    location.latitude,
+                    location.longitude,
+                    unit
+                )
+                    .subscribe({
                         _forecast.postValue(it)
-                    },{
-                        _forecast.postValue(Resource.Error("Check your internet connection!"))
+                    }, {
+                        _forecast.postValue(Resource.Error(it.message!!))
                     })
             )
-        }?:_forecast.postValue(Resource.Error("Check your GPS!"))
+        } ?: _forecast.postValue(Resource.Error("Check your GPS!"))
+    }
+
+    fun isDay(curHour: Int, curMinute: Int, sunset: String, sunrise: String): Boolean {
+        val curTime = "$curHour$curMinute".toInt()
+        val sunsetTime = sunset.takeLast(5).replace(":", "").toInt()
+        val sunriseTime = sunrise.takeLast(5).replace(":", "").toInt()
+        return curTime in (sunriseTime + 1) until sunsetTime
     }
 
     override fun onCleared() {
         compositeDisposable.dispose()
         super.onCleared()
     }
-
 }

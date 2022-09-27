@@ -12,7 +12,7 @@
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:layout_gravity="center"
-        android:src="@drawable/sun_loading"/>
+        android:src="@drawable/sun_loading" />
 
     <LinearLayout
         android:id="@+id/content"
@@ -54,7 +54,7 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="end"
                         android:layout_marginEnd="8dp"
-                        android:background="@null"
+                        android:background="@android:color/transparent"
                         android:entries="@array/degreesItems" />
                 </androidx.appcompat.widget.Toolbar>
 
@@ -140,23 +140,12 @@
                     app:layout_constraintTop_toBottomOf="@id/arrow_up"
                     tools:text="Sunny" />
 
-                <TextView
-                    android:id="@+id/feels_like"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    app:layout_constraintStart_toStartOf="@id/text_current_weather"
-                    app:layout_constraintTop_toBottomOf="@id/text_current_weather"
-                    tools:text="Feels like 34" />
-
                 <ImageView
                     android:id="@+id/current_weather_image"
                     android:layout_width="250dp"
                     android:layout_height="250dp"
                     android:layout_marginTop="8dp"
                     android:adjustViewBounds="true"
-                    android:scaleType="centerCrop"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"

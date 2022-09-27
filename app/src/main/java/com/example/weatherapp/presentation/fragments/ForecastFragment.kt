@@ -11,15 +11,15 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
 import com.example.weatherapp.R
-import com.example.weatherapp.data.mappers.Temperature
-import com.example.weatherapp.data.mappers.toDayWeather
-import com.example.weatherapp.data.mappers.toHourWeather
+import com.example.weatherapp.data.mappers.toListDayWeather
+import com.example.weatherapp.data.mappers.toListHourWeather
 import com.example.weatherapp.data.remote.dto.ForecastWeather
-import com.example.weatherapp.data.remote.dto.Hour
 import com.example.weatherapp.databinding.FragmentForecastBinding
+import com.example.weatherapp.other.Const.CELSIUS
+import com.example.weatherapp.other.Const.FAHRENHEIT
 import com.example.weatherapp.other.Resource
+import com.example.weatherapp.other.WeatherType
 import com.example.weatherapp.other.anim
 import com.example.weatherapp.presentation.MainActivity
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +35,6 @@ class ForecastFragment : Fragment() {
     private lateinit var daysAdapter: DaysAdapter
     private lateinit var hoursAdapter: HoursAdapter
     private lateinit var hoursLinearLayoutManager: RecyclerView.LayoutManager
-    private var currentSelection = 0
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -48,23 +47,24 @@ class ForecastFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        activity?.window?.statusBarColor = resources.getColor(R.color.day_status_bar)
         setupRecyclerView()
         observeForecast()
         binding.refresh.setOnRefreshListener {
+            val deg = if (binding.spinnerCF.selectedItemPosition == 0) CELSIUS else FAHRENHEIT
             lifecycleScope.launch {
-                viewModel.getForecast()
+                viewModel.getForecast(deg)
                 hoursLinearLayoutManager.scrollToPosition(0)
             }
         }
         binding.spinnerCF.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
-                if (currentSelection != p2) {
-                    if (p2 == 0) {
-                        refreshView(viewModel.forecast.value?.data, Temperature.CELSIUS)
-                    } else {
-                        refreshView(viewModel.forecast.value?.data, Temperature.FAHRENHEIT)
+                if (++viewModel.spinnerCheck > 1) {
+                    val deg = if (p2 == 0) CELSIUS else FAHRENHEIT
+
+                    lifecycleScope.launch {
+                        viewModel.getForecast(deg)
                     }
-                    currentSelection = p2
                 }
             }
 
@@ -72,24 +72,27 @@ class ForecastFragment : Fragment() {
         }
     }
 
-    private fun setBackgroundColor(cond: String?, isDay: Int?) {
+    private fun setBackgroundColor(cond: String?, isDay: Boolean) {
         cond?.let {
-            if (isDay == 0) {
-                view?.setBackgroundResource(com.example.weatherapp.R.drawable.gradient_night)
-                activity?.window?.statusBarColor=resources.getColor(R.color.night_status_bar)
+            if (!isDay) {
+                view?.setBackgroundResource(R.drawable.gradient_night)
+                activity?.window?.statusBarColor = resources.getColor(R.color.night_status_bar)
             } else {
                 when (it) {
-                    "Sunny" -> {
+                    "ClearSky" -> {
                         view?.setBackgroundResource(com.example.weatherapp.R.drawable.gradient_sunny)
-                        activity?.window?.statusBarColor=resources.getColor(R.color.sunny_status_bar)
+                        activity?.window?.statusBarColor =
+                            resources.getColor(R.color.sunny_status_bar)
                     }
-                    "Foggy" ->{
+                    "Foggy" -> {
                         view?.setBackgroundResource(com.example.weatherapp.R.drawable.gradient_foggy)
-                        activity?.window?.statusBarColor=resources.getColor(R.color.foggy_status_bar)
+                        activity?.window?.statusBarColor =
+                            resources.getColor(R.color.foggy_status_bar)
                     }
                     else -> {
                         view?.setBackgroundResource(com.example.weatherapp.R.drawable.gradient_day)
-                        activity?.window?.statusBarColor=resources.getColor(R.color.day_status_bar)
+                        activity?.window?.statusBarColor =
+                            resources.getColor(R.color.day_status_bar)
                     }
                 }
             }
@@ -105,8 +108,10 @@ class ForecastFragment : Fragment() {
                 is Resource.Error -> {
                     binding.progressBar.setOnClickListener {
                         binding.progressBar.startAnimation(anim)
+                        val deg =
+                            if (binding.spinnerCF.selectedItemPosition == 0) CELSIUS else FAHRENHEIT
                         lifecycleScope.launch(Dispatchers.IO) {
-                            viewModel.getForecast()
+                            viewModel.getForecast(deg)
                         }
                     }
                     if (!(activity as MainActivity).arePermissionsGranted()) {
@@ -128,21 +133,39 @@ class ForecastFragment : Fragment() {
                 }
                 is Resource.Success -> {
                     val deg =
-                        if (binding.spinnerCF.selectedItemPosition == 0) Temperature.CELSIUS else Temperature.FAHRENHEIT
-                    refreshView(it.data, deg)
-                    binding.refresh.isRefreshing = false
-                    binding.progressBar.visibility = View.GONE
-                    binding.progressBar.animation = null
-                    binding.content.visibility = View.VISIBLE
-                    setBackgroundColor(it.data?.current?.condition?.text, it.data?.current?.isDay)
+                        if (binding.spinnerCF.selectedItemPosition == 0) CELSIUS else FAHRENHEIT
+                    refreshView(it.data)
                     binding.apply {
-                        town.text = it.data?.location?.name
-                        textCurrentWeather.text = it.data?.current?.condition?.text
-                        Glide.with(requireContext())
-                            .load("https:${it.data?.current?.condition?.icon}")
-                            .into(currentWeatherImage)
+                        refresh.isRefreshing = false
+                        progressBar.visibility = View.GONE
+                        progressBar.animation = null
+                        content.visibility = View.VISIBLE
+                    }
+                    it.data?.daily?.weathercode?.get(0)?.toInt()?.let { weatherCode ->
+                        val weather = WeatherType.fromWMO(weatherCode)
+                        setBackgroundColor(
+                            weather.weatherDesc,
+                            viewModel.isDay(
+                                Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+                                Calendar.getInstance().get(Calendar.MINUTE),
+                                it.data.daily.sunrise[0],
+                                it.data.daily.sunset[0]
+                            )
+                        )
+                        binding.apply {
+                            textCurrentWeather.text = weather.weatherDesc
+                            currentWeatherImage.setImageDrawable(
+                                AppCompatResources.getDrawable(
+                                    requireContext(),
+                                    weather.iconRes
+                                )
+                            )
+                        }
+                    }
+                    binding.apply {
+                        town.text = it.data?.timezone?.split('/')?.get(1)
                         val calendar = Calendar.getInstance()
-                        val date = it.data?.location?.localtime?.take(10)?.split("-")?.map {
+                        val date = it.data?.hourly?.time?.get(0)?.take(10)?.split("-")?.map {
                             it.toInt()
                         }!!
                         calendar.set(date[0], date[1] - 1, date[2])
@@ -165,45 +188,20 @@ class ForecastFragment : Fragment() {
         }
     }
 
-    private fun refreshView(forecastWeather: ForecastWeather?, deg: Temperature) {
-        daysAdapter.differ.submitList(forecastWeather?.forecast?.forecastday?.map { day ->
-            day.toDayWeather(deg)
-        })
+    private fun refreshView(forecastWeather: ForecastWeather?) {
+        val days = forecastWeather?.daily?.toListDayWeather()
+        daysAdapter.differ.submitList(days)
         val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val hoursThisDay =
-            forecastWeather?.forecast?.forecastday?.get(0)?.hour?.takeLast(24 - currentHour)
-        val hoursNextDay = forecastWeather?.forecast?.forecastday?.get(1)?.hour?.take(currentHour)
-        val hours = mutableListOf<Hour?>()
-        if (hoursThisDay != null && hoursNextDay != null) {
-            hours.addAll(hoursThisDay)
-            hours.addAll(hoursNextDay)
-        }
-        hoursAdapter.differ.submitList(hours.map { hour ->
-            hour?.toHourWeather(deg)
-        })
+        val hours =
+            forecastWeather?.hourly?.toListHourWeather()?.subList(currentHour, 24 + currentHour)
+        hoursAdapter.differ.submitList(hours)
         binding.apply {
-            currentDegrees.text =
-                if (deg == Temperature.CELSIUS) "${
-                    forecastWeather?.current?.tempC?.toInt().toString()
-                }\u00B0" else "${forecastWeather?.current?.tempF?.toInt().toString()}\u00B0"
-            highestCurrentDegrees.text =
-                if (deg == Temperature.CELSIUS) forecastWeather?.forecast?.forecastday?.get(0)?.day?.maxtempC?.toInt()
-                    .toString() else forecastWeather?.forecast?.forecastday?.get(
-                    0
-                )?.day?.maxtempF?.toInt().toString()
-            lowestCurrentDegrees.text =
-                if (deg == Temperature.CELSIUS) forecastWeather?.forecast?.forecastday?.get(0)?.day?.mintempC?.toInt()
-                    .toString() else forecastWeather?.forecast?.forecastday?.get(
-                    0
-                )?.day?.mintempF?.toInt().toString()
-            feelsLike.text =
-                if (deg == Temperature.CELSIUS) requireContext().resources.getString(
-                    com.example.weatherapp.R.string.feels_like,
-                    forecastWeather?.current?.feelslikeC?.toInt()
-                ) else requireContext().resources.getString(
-                    R.string.feels_like,
-                    forecastWeather?.current?.feelslikeF?.toInt()
-                )
+            currentDegrees.text = requireContext().getString(
+                R.string.degree,
+                forecastWeather?.currentWeather?.temperature?.toInt()
+            )
+            highestCurrentDegrees.text = days?.get(0)?.maxDegree.toString()
+            lowestCurrentDegrees.text = days?.get(0)?.minDegree.toString()
         }
     }
 

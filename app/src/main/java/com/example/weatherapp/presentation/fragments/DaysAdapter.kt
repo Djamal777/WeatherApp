@@ -3,10 +3,10 @@ package com.example.weatherapp.presentation.fragments
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
 import com.example.weatherapp.databinding.DayWeatherItemBinding
 import com.example.weatherapp.domain.models.DayWeather
 import java.util.*
@@ -35,9 +35,7 @@ class DaysAdapter(
                 }
                 highestTemperature.text = item.maxDegree.toString()
                 lowestTemperature.text = item.minDegree.toString()
-                Glide.with(root.context)
-                    .load(item.icon)
-                    .into(weatherIcon)
+                weatherIcon.setImageDrawable(AppCompatResources.getDrawable(c, item.icon))
             }
         }
     }
