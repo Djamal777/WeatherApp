@@ -33,7 +33,6 @@ class ForecastViewModel(
     }
 
     suspend fun getForecast(unit: String) {
-        Log.d("ViewModel", "getForecast: yes")
         locationTracker.getCurrentLocation()?.let { location ->
             compositeDisposable.add(
                 repository.getForecast(
@@ -48,13 +47,6 @@ class ForecastViewModel(
                     })
             )
         } ?: _forecast.postValue(Resource.Error("Check your GPS!"))
-    }
-
-    fun isDay(curHour: Int, curMinute: Int, sunset: String, sunrise: String): Boolean {
-        val curTime = "$curHour$curMinute".toInt()
-        val sunsetTime = sunset.takeLast(5).replace(":", "").toInt()
-        val sunriseTime = sunrise.takeLast(5).replace(":", "").toInt()
-        return curTime in (sunriseTime + 1) until sunsetTime
     }
 
     override fun onCleared() {

@@ -1,5 +1,6 @@
 package com.example.weatherapp.presentation.fragments
 
+import android.location.Geocoder
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -21,6 +22,7 @@ import com.example.weatherapp.other.Const.FAHRENHEIT
 import com.example.weatherapp.other.Resource
 import com.example.weatherapp.other.WeatherType
 import com.example.weatherapp.other.anim
+import com.example.weatherapp.other.isDay
 import com.example.weatherapp.presentation.MainActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,7 +63,6 @@ class ForecastFragment : Fragment() {
             override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
                 if (++viewModel.spinnerCheck > 1) {
                     val deg = if (p2 == 0) CELSIUS else FAHRENHEIT
-
                     lifecycleScope.launch {
                         viewModel.getForecast(deg)
                     }
@@ -132,8 +133,6 @@ class ForecastFragment : Fragment() {
                     binding.refresh.isRefreshing = false
                 }
                 is Resource.Success -> {
-                    val deg =
-                        if (binding.spinnerCF.selectedItemPosition == 0) CELSIUS else FAHRENHEIT
                     refreshView(it.data)
                     binding.apply {
                         refresh.isRefreshing = false
@@ -142,15 +141,16 @@ class ForecastFragment : Fragment() {
                         content.visibility = View.VISIBLE
                     }
                     it.data?.daily?.weathercode?.get(0)?.toInt()?.let { weatherCode ->
-                        val weather = WeatherType.fromWMO(weatherCode)
+                        val isDay=isDay(
+                            Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+                            Calendar.getInstance().get(Calendar.MINUTE),
+                            it.data.daily.sunrise[0],
+                            it.data.daily.sunset[0]
+                        )
+                        val weather = WeatherType.fromWMO(weatherCode,isDay)
                         setBackgroundColor(
                             weather.weatherDesc,
-                            viewModel.isDay(
-                                Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
-                                Calendar.getInstance().get(Calendar.MINUTE),
-                                it.data.daily.sunrise[0],
-                                it.data.daily.sunset[0]
-                            )
+                            isDay
                         )
                         binding.apply {
                             textCurrentWeather.text = weather.weatherDesc
@@ -163,7 +163,10 @@ class ForecastFragment : Fragment() {
                         }
                     }
                     binding.apply {
-                        town.text = it.data?.timezone?.split('/')?.get(1)
+                        val geocoder = Geocoder(requireContext(), Locale.US)
+                        if(it.data!=null) {
+                            town.text = geocoder.getFromLocation(it.data.latitude, it.data.longitude, 1)[0].locality
+                        }
                         val calendar = Calendar.getInstance()
                         val date = it.data?.hourly?.time?.get(0)?.take(10)?.split("-")?.map {
                             it.toInt()
@@ -193,7 +196,12 @@ class ForecastFragment : Fragment() {
         daysAdapter.differ.submitList(days)
         val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val hours =
-            forecastWeather?.hourly?.toListHourWeather()?.subList(currentHour, 24 + currentHour)
+            forecastWeather?.hourly?.toListHourWeather(
+                forecastWeather.daily.sunrise[0],
+                forecastWeather.daily.sunset[0],
+                forecastWeather.daily.sunrise[1],
+                forecastWeather.daily.sunset[1],
+            )?.subList(currentHour, 24 + currentHour)
         hoursAdapter.differ.submitList(hours)
         binding.apply {
             currentDegrees.text = requireContext().getString(

@@ -12,6 +12,11 @@ sealed class WeatherType(
         iconRes = R.drawable.ic_sunny
     )
 
+    object ClearSkyNight : WeatherType(
+        weatherDesc = "Clear sky",
+        iconRes = R.drawable.ic_moon
+    )
+
     object MainlyClear : WeatherType(
         weatherDesc = "Mainly clear",
         iconRes = R.drawable.ic_cloudy
@@ -143,9 +148,9 @@ sealed class WeatherType(
     )
 
     companion object {
-        fun fromWMO(code: Int): WeatherType {
+        fun fromWMO(code: Int, isDay:Boolean): WeatherType {
             return when (code) {
-                0 -> ClearSky
+                0 ->if(isDay) ClearSky else ClearSkyNight
                 1 -> MainlyClear
                 2 -> PartlyCloudy
                 3 -> Overcast
