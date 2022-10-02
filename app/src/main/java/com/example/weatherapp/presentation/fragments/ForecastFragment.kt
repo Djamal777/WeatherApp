@@ -144,8 +144,8 @@ class ForecastFragment : Fragment() {
                         val isDay=isDay(
                             Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
                             Calendar.getInstance().get(Calendar.MINUTE),
-                            it.data.daily.sunrise[0],
-                            it.data.daily.sunset[0]
+                            it.data.daily.sunset[0],
+                            it.data.daily.sunrise[0]
                         )
                         val weather = WeatherType.fromWMO(weatherCode,isDay)
                         setBackgroundColor(
